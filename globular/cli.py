@@ -579,6 +579,8 @@ def train_flow():
     console.print("\n[bold cyan]5.[/bold cyan] Training config")
     epochs = Prompt.ask("[cyan]Epochs[/cyan]", default="3")
     batch_size = Prompt.ask("[cyan]Batch size[/cyan]", default="4")
+    seq_len = Prompt.ask("[cyan]Sequence length[/cyan]", default="128" if gpu_choice == "1" else "256")
+    max_samples = Prompt.ask("[cyan]Max samples[/cyan]", default="1000")
     lr = Prompt.ask("[cyan]Learning rate[/cyan]", default="1e-4")
     
     # Summary
@@ -592,16 +594,18 @@ def train_flow():
     summary.add_row("Dataset", dataset)
     summary.add_row("Epochs", epochs)
     summary.add_row("Batch", batch_size)
+    summary.add_row("Seq Len", seq_len)
+    summary.add_row("Samples", max_samples)
     summary.add_row("LR", lr)
     
     console.print(Panel(summary, title="[bold green]Training Config[/bold green]", border_style="green"))
     console.print()
     
     if Confirm.ask("[green]Start training?[/green]", default=False):
-        run_training(train_type, gpu_name, preset, dataset, epochs, batch_size, lr)
+        run_training(train_type, gpu_name, preset, dataset, epochs, batch_size, lr, seq_len, max_samples)
 
 
-def run_training(train_type, gpu, preset, dataset, epochs, batch_size, lr):
+def run_training(train_type, gpu, preset, dataset, epochs, batch_size, lr, seq_len=128, max_samples=1000):
     """Actually run training"""
     console.print(f"[dim]Running training...[/dim]")
     
@@ -619,6 +623,8 @@ def run_training(train_type, gpu, preset, dataset, epochs, batch_size, lr):
             epochs=int(epochs),
             batch_size=int(batch_size),
             lr=float(lr),
+            max_seq_len=int(seq_len),
+            max_samples=int(max_samples),
             dataset=dataset,
             output_dir="./output/globular",
         )
@@ -628,6 +634,10 @@ def run_training(train_type, gpu, preset, dataset, epochs, batch_size, lr):
     except ImportError as e:
         console.print(f"[red]Missing: {e}[/red]")
         console.print("[yellow]Install: pip install torch datasets accelerate[/yellow]")
+    except Exception as e:
+        console.print(f"[red]Training failed: {e}[/red]")
+        import traceback
+        console.print(traceback.format_exc())
 
 
 # =============================================================================

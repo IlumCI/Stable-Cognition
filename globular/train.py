@@ -73,6 +73,7 @@ class TrainingConfig:
     weight_decay: float = 0.01
     grad_clip: float = 1.0
     max_seq_len: int = 512
+    max_samples: int = 1000
     
     dataset: str = "synthetic"
     data_path: Optional[str] = None
@@ -109,6 +110,8 @@ class TrainingConfig:
             raise ValueError("lr must be positive")
         if self.max_seq_len <= 0:
             raise ValueError("max_seq_len must be positive")
+        if self.max_samples <= 0:
+            raise ValueError("max_samples must be positive")
     
     def to_dict(self) -> Dict:
         return {k: v for k, v in asdict(self).items() if not k.startswith('_')}
@@ -210,18 +213,20 @@ def train_globular(config: TrainingConfig):
     
     # Dataset
     if config.dataset == "synthetic":
-        dataset = SyntheticDataset(seq_len=config.max_seq_len, dim=config.dim)
+        dataset = SyntheticDataset(num_samples=config.max_samples, seq_len=config.max_seq_len, dim=config.dim)
     else:
         try:
             from datasets import load_dataset
             loaded = load_dataset(config.dataset)
             split = "train" if "train" in loaded else next(iter(loaded.keys()))
-            dataset = EmbeddingProxyDataset(loaded[split], seq_len=config.max_seq_len, dim=config.dim)
+            dataset = EmbeddingProxyDataset(
+                loaded[split], seq_len=config.max_seq_len, dim=config.dim, max_samples=config.max_samples
+            )
             print(f"Loaded {config.dataset} ({split}); using embedding proxy training")
         except Exception as exc:
             print(f"Could not load {config.dataset}: {exc}")
             print("Using synthetic dataset")
-            dataset = SyntheticDataset(seq_len=config.max_seq_len, dim=config.dim)
+            dataset = SyntheticDataset(num_samples=config.max_samples, seq_len=config.max_seq_len, dim=config.dim)
     
     dataloader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
     
@@ -368,6 +373,7 @@ def main():
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--grad-clip", type=float, default=1.0)
     parser.add_argument("--seq-len", type=int, default=512)
+    parser.add_argument("--max-samples", type=int, default=1000)
     
     parser.add_argument("--dataset", "-d", default="synthetic")
     parser.add_argument("--data-path")
@@ -415,6 +421,7 @@ def main():
         weight_decay=0.01,
         grad_clip=args.grad_clip,
         max_seq_len=args.seq_len,
+        max_samples=args.max_samples,
         dataset=args.dataset,
         data_path=args.data_path,
         insert_layers=args.insert or [5, 10],
